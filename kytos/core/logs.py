@@ -60,10 +60,16 @@ class LogManager:
 
     @classmethod
     def _catch_config_file_exception(cls, config_file):
-        """Try not using syslog handler (for when it is not installed)."""
+        """Try not using syslog handler (for when it is not installed).
+
+        Remove *handler_syslog* section and all references to syslog handler.
+        """
         if 'handler_syslog' in cls._PARSER:
             LOG.warning('Failed to load "%s". Trying to disable syslog '
                         'handler.', config_file)
+            cls._remove_syslog_from_option('handlers', 'keys')
+            for section in cls._PARSER.sections():
+                cls._remove_syslog_from_option(section, 'handlers')
             cls._PARSER.remove_section('handler_syslog')
             cls._use_config_file(config_file)
         else:
@@ -71,8 +77,17 @@ class LogManager:
                         'logging configuration.', config_file)
 
     @classmethod
-    def enable_websocket(cls, socket):
-        """Output logs to a web socket.
+    def _remove_syslog_from_option(cls, section, option):
+        """Remove *syslog* from the option value if exists."""
+        if cls._PARSER.has_option(section, option) \
+                and 'syslog' in cls._PARSER[section][option]:
+            values = cls._PARSER[section][option].split(',')
+            values.remove('syslog')
+            cls._PARSER[section][option] = ','.join(values)
+
+    @classmethod
+    def add_stream_handler(cls, stream):
+        """Output all logs to the given stream.
 
         Args:
             socket: socketio's socket.
